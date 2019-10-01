@@ -2,7 +2,6 @@
 """
 Created on Mon Sep 30 11:52:48 2019
 
-@author: piedi
 """
 
 from matplotlib.pylab import *
