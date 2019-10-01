@@ -1,116 +1,96 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep 30 11:52:48 2019
-
-"""
-
 from matplotlib.pylab import *
 
-#unidades base
-_m = 1.
-_Kg = 1.
+#unidades SI
+
+_m= 1.
+_kg = 1.
 _s = 1.
 _mm = 1e-3*_m
-_gr = 1e-3*_Kg
+_gr = 1e-3*_kg
 
-vfx =5.0 #m/s
-vfy =0.0 #m/s
 
-x0 = array([0., 1.], dtype=double)
-v0 = array([1., 1.], dtype=double)
+vfx = 5.0*_m/_s #m/s 
+vfy = 0.1 *_m/_s#m/s
 
-xi= x0  #zeros(2,dtype=double)     #posicion actual
-vi = v0  #zeros(2,dtype=double)    #velocidad actual
-xim1 = zeros(2, dtype=double)         #posicion siguiente
-vim1 = zeros(2, dtype=double)         #velocidad siguiente
 
-#masa de la particula
+x0 = array([0.,1.*_mm], dtype=double)
+v0 = array([1.,1.], dtype=double)
+
+xi = x0#zeros (2, dtype= double) #posicion actual
+vi = v0#zeros (2, dtype= double)	#velocidad actual
+xim1 = zeros (2, dtype= double)	#posicion siguiente
+vim1 = zeros (2, dtype= double)	#velocidad siguiente
+
 g = 9.81*_m/_s**2
-d = 1*_mm
-rho = 2700.*_Kg/(_m**3) #suponiendo parecido a una roca
-Cd = 0.47 #grag coef; para una particula 
-m = rho*(4./3./8.)*pi*(d**3)
+d = 1 * _mm
+rho_particula = 2650.*_kg/(_m**3)
+rho_agua = 1000.*_kg/(_m**3)
+Cd = 0.47  
 
-#inicializar Euler en x0 
+A = pi*(d/2)**2
+V = (4./3.)*pi*(d/2)**3
+m = rho_particula*V #masa de la particula, grano de arena
 
-dt = 2e-6*_s         #paso del tiempo
-tmax = 1*_s #3*dt  #0.1*_s      #tiempo maximo de simulacion
-ti = 0.*_s          #tiempo actual
+
+
+dt = 0.001*_s #paso de tiempo
+tmax = 2 *_s#tiempo maximo de simulacion
+ti = 0.*_s#tiempo actual
 
 W = array([0, -m*g])
-vf = array([vfx, vfy])
+fB = array([0, rho_agua*V*g])
 
-Nt = int32(2*tmax/dt)
-x_store = zeros((2,Nt))
-v_store = zeros((2,Nt))
-t_store = zeros(Nt)
+t = arange(0,tmax,dt)
+Nt = len(t)
+#Nt = int32(2*tmax/ dt) #numero de espacios de tiempo, tiene que ser entero porque hare un for
+norm = lambda v: sqrt(dot(v,v))
 
-#metodo de euler
-i = 0
-while ti < tmax:
-    
-    if i % 100 == 0: #que imprima cada 100 pasos
-        print 'ti= ',ti , '|xi|= ', sqrt(dot(xi,xi))
-    #print 'xi= ',xi
-    #print 'vi= ',vi
-    #evaluar v. relativa
-    vrel = vf-vi
-    norm_vrel = sqrt(dot(vrel,vrel))    #norma de vrel
-    
-    #evalucar feurzas sobre la particula
-    fD=0.5*Cd*norm_vrel*vrel
-    Fi = W + fD
-   
-    print 'Fi= ',Fi
-   
-    #evaliucar aceleracion
-    ai=Fi/m
-    print 'ai= ',ai
+k_penal = 1000*0.5*Cd*rho_agua*A*norm(v0)/(1*_mm)
 
-    #integrar
-    xim1 = xi + vi*dt + ai*((dt**2)/2)
-    vim1 = vi + ai*dt
-    
-    #avanzar al siguiente paso
-    x_store[:,i] = xi
-    v_store[:,i] = vi
-    t_store[:] = ti
-    ti+=dt
-    
-    i+=1
-    xi = xim1
-    vi = vim1
 
-#guardar ultimo paso  
-x_store[:,i] = xi   
-v_store[:,i] = vi
-t_store[i] = ti
 
-print x_store
-   
+
+def particula(z,t):
+	xi = z[:2]
+	vi = z[2:]
+	vf = array([vfx,vfy])
+	vrel = vf-vi
+	fD = (0.5*Cd*rho_agua*norm(vrel)*A)*vrel
+	Fi = W + fD + fB
+
+	if xi[1]<0:
+		Fi[1] += -k_penal*xi[1]
+
+	zp = zeros(4)
+	zp[:2] = vi
+
+	zp[2:] = Fi/m
+	return zp
+
+
+from scipy.integrate import odeint
+z0 = zeros(4)
+z0[:2] = x0
+z0[2:] = v0
+z = odeint(particula, z0, t)
+x = z[:,:2]
+v = z[:,2:]
+
 figure()
-#plot(x_store0,:i)
-plot(x_store[0, :i], x_store[1,:i])
+plot(x[:,0],x[:,1])
+ylim([0,10*_mm])
+
+
+figure()
+subplot(2,1,1)
+plot(t,x[:,0],label="x")
+plot(t,x[:,1],label="y")
+plt.legend()
+subplot(2,1,2)
+plot(t,v[:,0],label="vx")
+plot(t,v[:,1],label="vy")
+
 show()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
