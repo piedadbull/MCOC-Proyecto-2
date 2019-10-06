@@ -51,12 +51,10 @@ k_penal = 1000*0.5*Cd*rho_agua*A*norm(v01)/(1*_mm)
 
 
 def particula(z,t):
-	i = 0
-
 	zp = zeros(len(z))
 	for p in range((len(z))/4):
-		xi = z[i:2+i]
-		vi = z[2+i:4+i]
+		xi = z[p*4:2+p*4]
+		vi = z[2+p*4:4+p*4]
 		vf = array([vfx,vfy])
 		vrel = vf-vi
 		fD = (0.5*Cd*rho_agua*norm(vrel)*A)*vrel
@@ -65,10 +63,8 @@ def particula(z,t):
 		if xi[1]<0:
 			Fi[1] += -k_penal*xi[1]
 
-		zp[i:2+i] = vi
-		zp[2+i:4+i] = Fi/m
-
-		i += 4.
+		zp[p*4:2+p*4] = vi
+		zp[2+p*4:4+p*4] = Fi/m
 
 	return zp
 
