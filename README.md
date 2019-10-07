@@ -3,7 +3,7 @@
 En este proyecto se busca poder simular el transporte de sedimento minero.
 
 ### Integrantes
-Piedad Bull,
+Piedad Bull, https://github.com/piedadbull
 Matias Echagüe,
 Pedro Naretto y
 Catalina Solano.
