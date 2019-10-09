@@ -9,68 +9,84 @@ _kg = 1.
 _s = 1.
 _mm = 1e-3*_m
 _gr = 1e-3*_kg
+#------------------
+
+vfx = 5.0*_m/_s    #m/s 
+vfy = 0.1 *_m/_s   #m/s
 
 
-vfx = 5.0*_m/_s #m/s 
-vfy = 0.1 *_m/_s#m/s
+#Parametros
+g = 9.81*_m/_s**2
+d = 1 * _mm
+rho_particula = 2650.*_kg/(_m**3)
+rho_agua = 1000.*_kg/(_m**3)
+Cd = 0.47   #Constante de drag
+Cl = 0.2    #Constante de lifting
+Cm = 0.5    #Constante de peso virtual
+R = rho_particula/rho_agua -1
+alfa = (1+R+Cm)**(-1)
 
+A = pi*(d/2)**2           #Area transversal de particula
+V = (4./3.)*pi*(d/2)**3   #Volumen de particula
+m = rho_particula*V       #masa de la particula, grano de arena
+#------------------
+
+#Tiempo
+dt = 0.001*_s   #paso de tiempo
+tmax = 2. *_s   #tiempo maximo de simulacion
+ti = 0.*_s      #tiempo actual
+t = arange(0,tmax,dt)
+Nt = len(t)
+#Nt = int32(2*tmax/ dt) #numero de espacios de tiempo, tiene que ser entero porque hare un for
+#------------------
+
+#Generacion de articulas
 n = 4   #Numero de particulas
 
 x01 = zeros((n,2))   #matriz posicion de las particulas
 v01 = zeros((n,2))   #matriz velocidad de las particulas
 for i in range(n):
-	x01[i][:2] = array([0.,double((random.randint(0,10)+random.random())*_mm)])   #valores iniciales de la posicion
-	v01[i][:2] = array([double(random.randint(0,10)+random.random()),double(random.randint(0,10)+random.random())])   # y la velocidad de la particula
+	x01[i][:2] = array([random.random(),double((random.randint(0,8)+random.random()))])*_mm   #valores iniciales de la posicion
+	v01[i][:2] = array([double(random.randint(0,10)+random.random()),double(random.randint(0,10)+random.random())])*_m/_s   # y la velocidad de la particula
 
-print("Condiciones iniciales:")
-print("Posiociones =",x01)
-print("Velocidades =", v01)
+print"Condiciones iniciales:"
+print "Posiociones ="
+print x01
+print "Velocidades ="
+print v01
+#------------------
 
-
-#x01 = array([[0.,1.*_mm],[0.,2*_mm]], dtype=double)   # matriz posicion inicial [x,y] particula [1, 2, 3, ..., n]
-#v01 = array([[1.,1.],[1.,2.]], dtype=double)   # matriz velocidad inicial [vx,vy] particula [1, 2, 3, ..., n]
-#x02 = array([0.,1.*_mm], dtype=double)
-#v02 = array([1.,2.], dtype=double)
-
-#xi = x0   #zeros (2, dtype= double) #posicion actual
-#vi = v0   #zeros (2, dtype= double)	#velocidad actual
-#xim1 = zeros (2, dtype= double)	#posicion siguiente
-#vim1 = zeros (2, dtype= double)	#velocidad siguiente
-
-g = 9.81*_m/_s**2
-d = 1 * _mm
-rho_particula = 2650.*_kg/(_m**3)
-rho_agua = 1000.*_kg/(_m**3)
-Cd = 0.47  
-
-A = pi*(d/2)**2   #Area transversal de particula
-V = (4./3.)*pi*(d/2)**3   #Volumen de particula
-m = rho_particula*V   #masa de la particula, grano de arena
-
-
-
-dt = 0.0001*_s #paso de tiempo
-tmax = 3 *_s#tiempo maximo de simulacion
-ti = 0.*_s#tiempo actual
-
-W = array([0, -m*g])   #Vector peso de la particula
+#Fuerzas constantes
+W = array([0, -m*g])            #Vector peso de la particula
 fB = array([0, rho_agua*V*g])   #Vetcor Empuje
+#------------------
 
-t = arange(0,tmax,dt)
-Nt = len(t)
-#Nt = int32(2*tmax/ dt) #numero de espacios de tiempo, tiene que ser entero porque hare un for
-
+#Funciones y fuerzas
 norm = lambda v: sqrt(dot(v,v))   #Funcion norma
 
 k_penal = 1000*0.5*Cd*rho_agua*A*norm(vfx)/(1*_mm)   #Constante de resorte
 
-vfx = lambda xy: 1./0.4*log(30*(xy+1./30.))
 dist = lambda x1,x2: sqrt((x1[0]-x2[0])**2+(x1[1]-x2[1])**2)   #Distancia entre 2 particulas
 
-def angulo(x1,x2):   #Angulo de choque entre 2 particulas
-	return arctan(abs(x1[1]-x2[1])/abs(x1[0]-x2[0])) 
+def vfx(xy):   #Perfil logaritmico
+	if xy > d/2:
+		return 1./0.4*log(30*(xy+1./30.))
+	else:
+		return 1./0.4*log(30*(d/2+1./30.))
+
+def UtUb(xy,vi):   #Velocidad relativa sobre y bajo la particula
+	xy = xy[1]
+	if xy > d/2:
+		return array([vfx(xy+d/2)-vi[0],vfx(xy-d/2)-vi[0]])
+	else:
+		return array([vfx(d)-vi[0],vfx(0)-vi[0]])
 
 
+angulo = lambda x1,x2: arctan(abs(x1[1]-x2[1])/abs(x1[0]-x2[0]))   #Angulo de choque entre 2 particulas
+
+def lifting(xi,vi):   #Fuerza de lifting
+	Utb = UtUb(xi,vi) 
+	return 3./4.*alfa*Cl*(norm(Utb[0])**2 - norm(Utb[1])**2)*5e-3
 
 def particula(z,t):
 
@@ -81,16 +97,18 @@ def particula(z,t):
 		vf = array([vfx(xi[1]),vfy])
 		vrel = vf-vi
 		fD = (0.5*Cd*rho_agua*norm(vrel)*A)*vrel
-		Fi = W + fD + fB
+		#Fl = array([0.,lifting(xi,vi)])
+		Fi = W + fD + fB 
 
 		if xi[1] < d/2.:   #Cuando centro de la particula se encuentra a una distancia de d/2 se produce el choque contra el piso
 			Fi[1] += -k_penal*(xi[1]-d/2)
 
 		for p2 in range((len(z))/4):   #Revisamos si hay choque entre la particula p1 y alguna otra particula
-			if p1 != p2:
+			if p1 < p2:
 				x2 = z[p2*4:2+p2*4]    #Posicion y velocidad de la 2da particula
 				v2 = z[2+p2*4:4+p2*4]
 				xdif = dist(xi,x2)   #Distancia entre los centros de las particulas
+
 				if xdif < d:         #Revisamos si hay choque revisando si la diferencia de posiciones es menor a 1 diametro
 					vdif = vi-v2
 					Fct = abs(-k_penal*(xdif-d))   #La misma idea de choque contra el suelo
@@ -103,46 +121,38 @@ def particula(z,t):
 						Fcy = Fct*cos(theta)
 					else:
 						Fcy = -Fct*cos(theta)
-					Fc = [Fcx, Fcy]
-					Fi += Fc
-					print (t,"choque")
+					Fc = array([Fcx, Fcy])
+					zp[2+p1*4:4+p1*4] += Fc/m
+					zp[2+p2*4:4+p2*4] -= Fc/m
+					print "choque",t, p1, p2
 
-		zp[p1*4:2+p1*4] = vi      #Guardamos la derivada de la posicion con respecto al tiempo
-		zp[2+p1*4:4+p1*4] = Fi/m  #Guardamos la derivada de la velocidad con respecto al tiempo
+		zp[p1*4:2+p1*4] += vi      #Guardamos la derivada de la posicion con respecto al tiempo
+		zp[2+p1*4:4+p1*4] += Fi/m  #Guardamos la derivada de la velocidad con respecto al tiempo
 
 	return zp   #Retornamos el vector derivada
 
 
+#Simulacion
 from scipy.integrate import odeint
 
 z0 = zeros(4*n)      #Vector de condiciones iniciales para la integracion. Guardamos de la forma
 for p in range(n):   # z0 = [x1,y1,vx1,vy1,x2,y2,vx2,vy2,x3,y3,vx3,vy3,....,xn,yn,vxn,vyn]
-    z0[p*4:2+p*4] = x01[p]
-    z0[2+p*4:4+p*4] = v01[p]
-    
-print z0
-#z0[:2] = x01
-#z0[2:4] = v01
-#z0[4:6] = x02
-#z0[6:8] = v02
+    z0[p*4:2+p*4] += x01[p]
+    z0[2+p*4:4+p*4] += v01[p]
 
 
 z = odeint(particula, z0, t)
+#------------------
 
-
-#x1 = z[:,:2]
-#v1 = z[:,2:4]
-#x2 = z[:,4:6]
-#v2 = z[:,6:8]
-
+#Graficos
 figure()
 for p in range(n):
     x1 = z[:,p*4:2+p*4]
     plot(x1[:,0],x1[:,1],label="p"+str(p+1))
     
-#plot(x1[:,0],x1[:,1],label="x1")
+#plot([0,t],[0,0],label="piso")
 #plot(x2[:,0],x2[:,1],label="x2")
-ylim([0,50*_mm])
+#ylim([0,50*_mm])
 plt.title("Posicion particulas plano XY")
 plt.legend()
 
@@ -171,5 +181,5 @@ for p in range(n):
 #	ax.plot(t, x1[:,0],x1[:,1]) 
 
 show()
-
+#------------------
 
